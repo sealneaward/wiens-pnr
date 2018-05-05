@@ -1,5 +1,5 @@
 *.pyc
-*.csv
+
 .idea/**
 build/**
 dist/**
@@ -10,6 +10,5 @@ pnr.egg-info/**
 
 **/venv/**
 **/logs/**
-**/tars/**
 **/saves*/**
 *.py~
