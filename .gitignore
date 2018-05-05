@@ -1,0 +1,14 @@
+*.pyc
+*.csv
+.idea/**
+build/**
+dist/**
+pnr.egg-info/**
+*.pkl
+*.npy
+*.mp4
+**/wiens/data/sportvu/**
+**/venv/**
+**/logs/**
+**/saves*/**
+*.py~
