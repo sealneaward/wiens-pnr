@@ -3,7 +3,7 @@
 .idea/**
 build/**
 dist/**
-pnr.egg-info/**
+wiens.egg-info/**
 *.pkl
 *.npy
 *.mp4
