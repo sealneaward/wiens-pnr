@@ -8,9 +8,9 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from pnr.vis.utils import draw_full_court, draw_half_court
-from pnr.data.utils import get_game_info
-import pnr.config as CONFIG
+from wiens.vis.utils import draw_full_court, draw_half_court
+from wiens.data.utils import get_game_info
+import wiens.config as CONFIG
 
 class EventException(Exception):
     pass
@@ -124,7 +124,7 @@ class Event:
             break
         if last_idx != -1:
           self.moments = self.moments[:last_idx]
-            
+
     def sequence_around_t(self, anno, tfr, pnr=False):
         """
         segment [T_a - tfr, T_a + tfr]

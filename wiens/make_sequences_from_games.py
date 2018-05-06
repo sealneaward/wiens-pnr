@@ -4,22 +4,22 @@ Usage:
     make_sequences_from_games.py <f_data_config>
 
 Arguments:
-    <f_data_config>  example ''rev3_1-bmf-25x25.yaml''
+    <f_data_config>  example ''wiens.yaml''
 
 Example:
-    python make_sequences_from_sportvu.py rev3_1-bmf-25x25.yaml
+    python make_sequences_from_sportvu.py wiens.yaml
 """
-from pnr.data.dataset import BaseDataset
-from pnr.data.extractor import BaseExtractor
-from pnr.data.loader import BaseLoader
+from wiens.data.dataset import BaseDataset
+from wiens.data.extractor import BaseExtractor
+from wiens.data.loader import BaseLoader
 import config as CONFIG
-from pnr.data.constant import data_dir
+from wiens.data.constant import data_dir
 from tqdm import tqdm
 import os
 from docopt import docopt
 import yaml
 import numpy as np
-from pnr.data.utils import make_3teams_11players
+from wiens.data.utils import make_3teams_11players
 import signal
 from contextlib import contextmanager
 

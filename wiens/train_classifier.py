@@ -4,11 +4,11 @@ Usage:
     train_classifier.py <fold_index> <f_data_config> <f_model_config>
 
 Arguments:
-    <f_data_config>  example ''data/config/pnrs.yaml''
+    <f_data_config>  example ''data/config/wiens.yaml''
     <f_model_config> example 'model/config/conv2d-3layers.yaml'
 
 Example:
-    python train_classifier.py 0 pnrs.yaml conv2d-3layers-25x25.yaml
+    python train_classifier.py 0 wiens.yaml conv2d-3layers-25x25.yaml
 Options:
     --negative_fraction_hard=<percent> [default: 0]
 """
@@ -21,11 +21,11 @@ from __future__ import print_function
 import tensorflow as tf
 optimize_loss = tf.contrib.layers.optimize_loss
 
-from pnr.model.convnet2d import ConvNet2d
-from pnr.data.dataset import BaseDataset
-from pnr.data.extractor import BaseExtractor
-from pnr.data.loader import *
-import pnr.config as CONFIG
+from wiens.model.convnet2d import ConvNet2d
+from wiens.data.dataset import BaseDataset
+from wiens.data.extractor import BaseExtractor
+from wiens.data.loader import *
+import wiens.config as CONFIG
 
 from tqdm import tqdm
 from docopt import docopt

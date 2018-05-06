@@ -2,7 +2,7 @@ from __future__ import division
 import cPickle as pickle
 import yaml
 import os
-from pnr.data.constant import data_dir, game_dir
+from wiens.data.constant import data_dir, game_dir
 import numpy as np
 import pandas as pd
 
@@ -55,8 +55,7 @@ class BaseDataset:
             self.config = yaml.load(open(f_config, 'rb'))
         else:
             self.config = f_config
-        assert (fold_index >= 0 and fold_index <
-                self.config['data_config']['N_folds'])
+        assert (fold_index >= 0 and fold_index < self.config['data_config']['N_folds'])
         self.tfr = self.config['data_config']['tfr']
         self.t_jitter = self.config['data_config']['t_jitter']
         self.t_negative = self.config['data_config']['t_negative']
@@ -79,8 +78,7 @@ class BaseDataset:
 
             self.train_annotations, self.val_annotations = self._split(self.annotations, fold_index)
             # make sure no overlapping Event between train and val
-            self.train_annotations, self.val_annotations = disentangle_train_val(self.train_annotations,
-                                                                                 self.val_annotations)
+            self.train_annotations, self.val_annotations = disentangle_train_val(self.train_annotations, self.val_annotations)
             self._make_annotation_dict()
             # hard negative examples
             ## WARNING: K-fold not supported here
@@ -89,8 +87,8 @@ class BaseDataset:
             if 'hard-negatives' in self.config['data_config']:
                 self.hard_negatives = pickle.load(open(data_dir + self.config['data_config']['hard-negatives']))
             if load_raw:
-                # annotation only has Events with PNR
-                # need to find Events without PNR, split into train/val
+                # annotation only has Events with pnr
+                # need to find Events without pnr, split into train/val
                 #   for negatives examples
                 # Let's call these Events 'void'
                 # use gameclock = -1

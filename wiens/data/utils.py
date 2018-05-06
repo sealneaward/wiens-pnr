@@ -199,19 +199,6 @@ def pictorialize_fast_pnr(xx, sample_rate=1, Y_RANGE=100, X_RANGE=50, keep_chann
     new_target[:, 4] = target[:, 4]
     new_target[new_target > 1] = 1
 
-    # debugging
-    # colour = {0: 'green', 1: 'red', 2: 'blue', 3: 'orange', 4: 'purple'}
-
-    # for pnr in new_target:
-    #     fig = plt.figure()
-    #     for ind, player in enumerate(pnr):
-    #         ax = fig.add_subplot(2, 3, ind + 1)
-    #         player = np.rollaxis(player, 0, 3)
-    #         player = player[:, :, :].sum(2)
-    #         ax.imshow(player)
-    #     plt.show()
-    #     plt.close()
-
     return new_target
 
 

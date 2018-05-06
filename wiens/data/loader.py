@@ -6,13 +6,13 @@ import numpy as np
 import pandas as pd
 import cPickle as pkl
 
-from pnr.vis.Event import Event, EventException
-from pnr.vis.Team import TeamNotFoundException
-from pnr.data.extractor import ExtractorException, OneHotException
-from pnr.data.utils import shuffle_2_array, make_3teams_11players
-from pnr.data.constant import data_dir, game_dir
-import pnr.config as CONFIG
-from pnr.data.constant import game_dir
+from wiens.vis.Event import Event, EventException
+from wiens.vis.Team import TeamNotFoundException
+from wiens.data.extractor import ExtractorException, OneHotException
+from wiens.data.utils import shuffle_2_array, make_3teams_11players
+from wiens.data.constant import data_dir, game_dir
+import wiens.config as CONFIG
+from wiens.data.constant import game_dir
 
 
 class BaseLoader:
@@ -117,7 +117,7 @@ class BaseLoader:
             if anno == None:
                 break
             try:
-                e = Event(self.dataset.games[anno['gameid']]['events'][anno['eid']], anno=anno, gameid=anno['gameid'])
+                e = Event(self.dataset.games[anno['gameid']]['events'][anno['eid']], anno=anno)
                 e.sequence_around_t(anno, self.dataset.tfr)  # EventException
                 if extract:
                     # ExtractorException

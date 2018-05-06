@@ -6,11 +6,11 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import yaml
-from pnr.data.utils import (
+from wiens.data.utils import (
     pictorialize_team, pictorialize_fast, make_3teams_11players,
     make_reference, scale_last_dim, make_reference_pnr, pictorialize_fast_pnr
 )
-from pnr.data.constant import game_dir
+from wiens.data.constant import game_dir
 
 
 class ExtractorException(Exception):
