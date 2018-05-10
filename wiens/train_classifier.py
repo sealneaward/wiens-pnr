@@ -24,7 +24,7 @@ from wiens.data.loader import GameSequenceLoader
 import wiens.config as CONFIG
 
 from sklearn.svm import SVC as SVM
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, accuracy_score
 
 from docopt import docopt
 import yaml
@@ -48,6 +48,7 @@ def train(data_config):
     predict = svm.predict(val_x)
 
     print(classification_report(val_t, predict))
+    print('\n Accuracy: %s' % (accuracy_score(val_t, predict)))
 
 if __name__ == '__main__':
     arguments = docopt(__doc__)
