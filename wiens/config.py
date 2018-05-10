@@ -15,12 +15,6 @@ annotation.dir = "%s/%s" % (REAL_PATH, "annotation")
 data.config = ConfigSection("config")
 data.config.dir = "%s/%s" % (data.dir, "config")
 
-model = ConfigSection("model")
-model.dir = "%s/%s" % (REAL_PATH, "model")
-
-model.config = ConfigSection("config")
-model.config.dir = "%s/%s" % (model.dir, "config")
-
 plots = ConfigSection("plots")
 plots.dir = "%s/%s" % (REAL_PATH, "plots")
 

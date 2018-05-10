@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import cPickle as pkl
 import time
+from tqdm import tqdm
 
 from wiens.vis.Event import Event, EventException, FeatureException
 from wiens.vis.Team import TeamNotFoundException
@@ -282,66 +283,55 @@ class BaseLoader:
 
 
 class GameSequenceLoader:
-    def __init__(self, dataset, extractor, batch_size, mode='sample',
-                 fraction_positive=.5, negative_fraction_hard=0):
+    def __init__(self, dataset, extractor, batch_size, mode='sample'):
         """
         """
         self.config = dataset.config
-        self.negative_fraction_hard = negative_fraction_hard
         self.dataset = dataset  # not used
         self.root_dir = os.path.join(os.path.join(data_dir, self.dataset.config['preproc_dir']), str(self.dataset.fold_index))
         self.extractor = extractor
         self.batch_size = batch_size  # not used
-        self.fraction_positive = fraction_positive
         self.mode = mode
         self.batch_index = 0
 
         games = self.dataset.config['data_config']['game_ids']
-        self.detect_validation = self.dataset.config['data_config']['detect_validation']
 
-        self.pos_x = []
-        self.neg_x = []
-        self.pos_t = []
+        self.x = []
+        self.t = []
         self.val_x = []
         self.val_t = []
 
-        for game in self.detect_validation:
-            if game in games:
-                games.remove(game)
-
-        for game in games:
+        for game in tqdm(games):
             try:
-                pos_x = np.load(os.path.join(self.root_dir, '%s_pos_x.npy' % game))
-                neg_x = np.load(os.path.join(self.root_dir, '%s_neg_x.npy' % game))
-                pos_t = np.load(os.path.join(self.root_dir, '%s_pos_t.npy' % game))
-                val_x = np.load(os.path.join(self.root_dir, '%s_val_x.npy' % game))
+                x = pd.read_pickle(os.path.join(self.root_dir, '%s_x.pkl' % game))
+                t = np.load(os.path.join(self.root_dir, '%s_t.npy' % game))
+                val_x = pd.read_pickle(os.path.join(self.root_dir, '%s_val_x.pkl' % game))
                 val_t = np.load(os.path.join(self.root_dir, '%s_val_t.npy' % game))
             except IOError:
                 continue
 
-            self.pos_x.extend(pos_x)
-            self.neg_x.extend(neg_x)
-            self.pos_t.extend(pos_t)
+            x = self.get_features(x)
+            val_x = self.get_features(val_x)
+
+            self.x.extend(x)
+            self.t.extend(t)
             self.val_x.extend(val_x)
             self.val_t.extend(val_t)
 
         self.val_x = np.array(self.val_x)
         self.val_t = np.array(self.val_t)
-        self.pos_x = np.array(self.pos_x)
-        self.neg_x = np.array(self.neg_x)
-        self.pos_t = np.array(self.pos_t)
-        self.neg_t = np.array([[1, 0]]).repeat(self.neg_x.shape[0], axis=0)
+        self.x = np.array(self.x)
+        self.t = np.array(self.t)
 
-        self.pos_ind = 0
-        self.neg_ind = 0
+        self.x = self.get_binarized_features(self.x)
+        self.val_x = self.get_binarized_features(self.val_x)
+
+        self.x, self.t = shuffle_2_array(self.x, self.t)
+        self.val_x, self.val_t = shuffle_2_array(self.val_x, self.val_t)
+
+        self.ind = 0
         self.val_ind = 0
-        self.N_pos = int(batch_size * fraction_positive)
-        self.N_neg = batch_size - self.N_pos
-
-        if self.negative_fraction_hard > 0:
-            self.N_hard_neg = int(self.N_neg * negative_fraction_hard)
-            self.N_neg = self.N_neg - self.N_hard_neg
-            self.hard_neg_ind = 0
+        self.N = int(batch_size)
 
     def _split(self, inds, fold_index=0):
         if self.config['data_config']['shuffle']:
@@ -368,157 +358,95 @@ class GameSequenceLoader:
         # if self.batch_index == self.dataset_size:
         #     return None
 
-        if self.pos_ind + self.N_pos >= self.pos_x.shape[0]:
-            self.pos_ind = 0
-            self.pos_x, self.pos_t = shuffle_2_array(self.pos_x, self.pos_t)
-        if self.neg_ind + self.N_neg >= self.neg_x.shape[0]:
-            self.neg_ind = 0
-            self.neg_x, self.neg_t = shuffle_2_array(self.neg_x, self.neg_t)
-        if (self.negative_fraction_hard > 0 and
-                self.hard_neg_ind + self.N_hard_neg >= self.hard_neg_x.shape[0]):
-            self.hard_neg_ind = 0
-            self.hard_neg_x, self.hard_neg_t = shuffle_2_array(self.hard_neg_x, self.hard_neg_t)
+        if self.ind + self.N >= self.x.shape[0]:
+            self.ind = 0
+            self.x, self.t = shuffle_2_array(self.x, self.t)
 
-        s = list(self.pos_x.shape)
+        s = list(self.x.shape)
         s[0] = self.batch_size
         x = np.zeros(s)
         t = np.zeros((self.batch_size, 2))
-        x[:self.N_pos] = self.pos_x[self.pos_ind:self.pos_ind + self.N_pos]
-        t[:self.N_pos] = self.pos_t[self.pos_ind:self.pos_ind + self.N_pos]
-        if not self.negative_fraction_hard > 0:
-            x[self.N_pos:] = self.neg_x[self.neg_ind:self.neg_ind + self.N_neg]
-            t[self.N_pos:] = self.neg_t[self.neg_ind:self.neg_ind + self.N_neg]
-        else:
-            x[self.N_pos:self.N_pos + self.N_hard_neg] = self.hard_neg_x[
-                self.hard_neg_ind:self.hard_neg_ind + self.N_hard_neg]
-            t[self.N_pos:self.N_pos + self.N_hard_neg] = self.hard_neg_t[
-                self.hard_neg_ind:self.hard_neg_ind + self.N_hard_neg]
-            x[self.N_pos + self.N_hard_neg:] = self.neg_x[self.neg_ind:self.neg_ind + self.N_neg]
-            t[self.N_pos + self.N_hard_neg:] = self.neg_t[self.neg_ind:self.neg_ind + self.N_neg]
+        x[:self.N] = self.x[self.ind:self.ind + self.N]
+        t[:self.N] = self.t[self.ind:self.ind + self.N]
         if extract:
             x = self.extractor.extract_batch(x, input_is_sequence=True)
-        self.pos_ind += self.N_pos
-        self.neg_ind += self.N_neg
-        if self.negative_fraction_hard > 0:
-            self.hard_neg_ind += self.N_hard_neg
-        return x, t
-
-    def load_valid(self, extract=True):
-        x = self.val_x
-        if extract:
-            x = self.extractor.extract_batch(x, input_is_sequence=True)
-        t = self.val_t
-        return x, t
-
-    def load_test(self, extract=True):
-        x, t = [], []
-        for game in self.detect_validation:
-            pos_x = np.load(os.path.join(self.root_dir, '%s_pos_x.npy' % game))
-            pos_t = np.load(os.path.join(self.root_dir, '%s_pos_t.npy' % game))
-            neg_x = np.load(os.path.join(self.root_dir, '%s_neg_x.npy' % game))
-            neg_t = np.load(os.path.join(self.root_dir, '%s_neg_t.npy' % game))
-            val_x = np.load(os.path.join(self.root_dir, '%s_val_x.npy' % game))
-            val_t = np.load(os.path.join(self.root_dir, '%s_val_t.npy' % game))
-
-            x.extend(val_x)
-            x.extend(pos_x)
-            x.extend(neg_x[:len(pos_x)])
-            t.extend(val_t)
-            t.extend(pos_t)
-            t.extend(neg_t[:len(pos_t)])
-
-        inds = range(len(x))
-        if self.config['data_config']['shuffle']:
-            np.random.seed(self.config['randseed'])
-            np.random.shuffle(inds)
-
-        x = np.array(x)
-        t = np.array(t)
-
-        x = x[inds]
-        t = t[inds]
-
-        if extract:
-            x = self.extractor.extract_batch(x, input_is_sequence=True)
-
-        return x, t
-
-    def reset(self):
-        self.batch_index = 0
-
-
-class TrajectoryLoader:
-    def __init__(self, config, fold_index):
-        """
-        """
-        pnr_dir = os.path.join(game_dir, 'pnr-annotations')
-
-        self.config = config
-        self.batch_size = self.config['batch_size']
-        self.batch_index = 0
-        self.fold_index = fold_index
-        self.x = []
-        self.annotations = []
-
-        self.annotations = pd.read_pickle('%s/roles/annotations.pkl' % (pnr_dir))
-        self.x = np.load(open('%s/roles/behaviours.npy' % (pnr_dir), 'rb'))
-
-        self.x = np.array(self.x)
-        self.ind = 0
-        self.val_ind = 0
-        self.set_ind = 0
-        self.N = self.batch_size
-
-        # train_inds, val_inds = self._split(list(range(len(self.x))))
-        # self.val_x = self.x[val_inds]
-        # self.train_x = self.x[train_inds]
-        self.train_x = self.x
-
-    def _split(self, inds, fold_index=0):
-        if self.config['data_config']['shuffle']:
-            np.random.seed(self.config['randseed'])
-            np.random.shuffle(inds)
-        N = len(inds)
-        val_start = np.round(fold_index / self.config['data_config']['N_folds'] * N).astype('int32')
-        val_end = np.round((fold_index + 1) / self.config['data_config']['N_folds'] * N).astype('int32')
-        val_inds = inds[val_start:val_end]
-        train_inds = inds[:val_start] + inds[val_end:]
-        return train_inds, val_inds
-
-    def next(self):
-        return self.next_batch()
-
-    def next_batch(self):
-        if self.ind + self.N >= self.train_x.shape[0]:
-            self.ind = 0
-            np.random.shuffle(self.train_x)
-
-        try:
-            s = list(self.train_x.shape)
-        except Exception as err:
-            print(None)
-        s[0] = self.batch_size
-        x = np.zeros(s)
-        x[:self.N] = self.train_x[self.ind:self.ind + self.N]
         self.ind += self.N
-        return x
+        return x, t
 
-    def load_valid(self):
-        if self.val_ind + self.batch_size > len(self.val_x):
-            self.val_ind = 0
-            return None
-        x = self.val_x[self.val_ind:self.val_ind + self.batch_size]
-        self.val_ind += self.batch_size
-        return x
+    def load_valid(self, decode=False):
+        x = self.val_x
+        t = self.val_t
+        if decode:
+            labels = np.zeros((t.shape[0]))
+            labels[t[:, 1] == 1] = 1
+            t = labels
 
-    def load_set(self):
-        if self.set_ind + self.batch_size > len(self.x):
-            self.set_ind = 0
-            return None
-        x = self.x[self.set_ind:self.set_ind + self.batch_size]
-        annotations = self.annotations[self.set_ind:self.set_ind + self.batch_size]
-        self.set_ind += self.batch_size
-        return x, annotations
+        return x, t
+
+    def load_train(self, decode=False):
+        x = self.x
+        t = self.t
+        if decode:
+            labels = np.zeros((t.shape[0]))
+            labels[t[:, 1] == 1] = 1
+            t = labels
+
+        return x, t
 
     def reset(self):
         self.batch_index = 0
+        
+    def get_features(self, events):
+        features = []
+        for event in events:
+            event_features = []
+            event_features.append(event.min_dist_bh_bd)
+            event_features.append(event.min_dist_bh_ss)
+            event_features.append(event.min_dist_bd_ss)
+            event_features.append(event.min_dist_bh_hp)
+            event_features.append(event.min_dist_bd_hp)
+            event_features.append(event.min_dist_ss_hp)
+    
+            event_features.append(event.diff_dist_bh_bd_ap)
+            event_features.append(event.diff_dist_bh_ss_ap)
+            event_features.append(event.diff_dist_bd_ss_ap)
+            event_features.append(event.diff_dist_bh_hp_ap)
+            event_features.append(event.diff_dist_bd_hp_ap)
+            event_features.append(event.diff_dist_ss_hp_ap)
+    
+            event_features.append(event.diff_dist_bh_bd_ex)
+            event_features.append(event.diff_dist_bh_ss_ex)
+            event_features.append(event.diff_dist_bd_ss_ex)
+            event_features.append(event.diff_dist_bh_hp_ex)
+            event_features.append(event.diff_dist_bd_hp_ex)
+            event_features.append(event.diff_dist_ss_hp_ex)
+    
+            event_features.append(event.ave_dist_bh_bd_ap)
+            event_features.append(event.ave_dist_bh_ss_ap)
+            event_features.append(event.ave_dist_bd_ss_ap)
+            event_features.append(event.ave_dist_bh_hp_ap)
+            event_features.append(event.ave_dist_bd_hp_ap)
+            event_features.append(event.ave_dist_ss_hp_ap)
+    
+            event_features.append(event.ave_dist_bh_bd_ex)
+            event_features.append(event.ave_dist_bh_ss_ex)
+            event_features.append(event.ave_dist_bd_ss_ex)
+            event_features.append(event.ave_dist_bh_hp_ex)
+            event_features.append(event.ave_dist_bd_hp_ex)
+            event_features.append(event.ave_dist_ss_hp_ex)
+
+            features.append(event_features)
+
+        features = np.array(features)
+        return features
+
+    def get_binarized_features(self, features, bins=5):
+        binned_features = pd.DataFrame()
+        for ind in range(features.shape[-1]):
+            feature = features[:, ind]
+            feature = pd.qcut(feature, bins, labels=False)
+            feature = pd.get_dummies(feature)
+            binned_features = pd.concat([binned_features, feature], axis=1)
+
+        binned_features = binned_features.values
+        return binned_features
