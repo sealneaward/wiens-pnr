@@ -48,7 +48,7 @@ python train_classifier.py wiens.yaml --multi
 
 ### Process Data
 
-This is if you want to sit through the 6-7 processing time of creating negative annotations, forming roles, etc.
+This is if you want to sit through the 6-7 hr processing time of creating negative annotations, forming roles, etc.
 Note, that you should delete the data in `wiens/data/rev3_1/0` for this to work.
 Script ignores process if data already exists.
 

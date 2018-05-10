@@ -53,8 +53,8 @@ def sequence_games():
         data_config = yaml.load(open(f_data_config, 'rb'))
 
         for game in tqdm(games):
-            if os.path.exists(os.path.join(curr_folder, '%s_t.npy' % game)):
-                continue
+            # if os.path.exists(os.path.join(curr_folder, '%s_t.npy' % game)):
+            #     continue
             try:
                 with time_limit(4500):
                     # create dataset fo single game
@@ -66,16 +66,18 @@ def sequence_games():
                     if loaded is None:
                         continue
                     else:
-                        val_x, val_t = loaded
+                        val_x, val_t, val_z = loaded
                         if not len(val_x) > 0:
                             continue
                     pkl.dump(val_x, open(os.path.join(curr_folder, '%s_val_x.pkl' % game), 'wb'))
                     np.save(os.path.join(curr_folder, '%s_val_t' % game), val_t)
+                    np.save(os.path.join(curr_folder, '%s_val_z' % game), val_z)
                     del val_x, val_t
 
-                    x, t = loader.load_train(extract=False, positive_only=False)
+                    x, t, z = loader.load_train(extract=False, positive_only=False)
                     pkl.dump(x, open(os.path.join(curr_folder, '%s_x.pkl' % game), 'wb'))
                     np.save(os.path.join(curr_folder, '%s_t' % game), t)
+                    np.save(os.path.join(curr_folder, '%s_z' % game), z)
                     del x
 
             except TimeoutException as e:
@@ -90,13 +92,15 @@ def binarize_features():
         extractor = BaseExtractor(data_config)
         loader = GameSequenceLoader(dataset, extractor, data_config['batch_size'])
 
-        x, t = loader.load_train()
-        val_x, val_t = loader.load_valid()
+        x, t, z = loader.load_train()
+        val_x, val_t, val_z = loader.load_valid()
 
         np.save(os.path.join(curr_folder, 'x'), x)
         np.save(os.path.join(curr_folder, 't'), t)
+        np.save(os.path.join(curr_folder, 'z'), z)
         np.save(os.path.join(curr_folder, 'val_x'), val_x)
         np.save(os.path.join(curr_folder, 'val_t'), val_t)
+        np.save(os.path.join(curr_folder, 'val_z'), val_z)
 
 
 if __name__ == '__main__':
