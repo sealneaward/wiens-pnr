@@ -5,8 +5,9 @@ import os
 import numpy as np
 import pandas as pd
 import cPickle as pkl
+import time
 
-from wiens.vis.Event import Event, EventException
+from wiens.vis.Event import Event, EventException, FeatureException
 from wiens.vis.Team import TeamNotFoundException
 from wiens.data.extractor import ExtractorException, OneHotException
 from wiens.data.utils import shuffle_2_array, make_3teams_11players
@@ -52,9 +53,9 @@ class BaseLoader:
                 while True:
                     try:
                         anno = func[j]()
-                        e = Event(self.dataset.games[anno['gameid']][
-                                  'events'][anno['eid']], gameid=anno['gameid'])
+                        e = Event(self.dataset.games[anno['gameid']]['events'][anno['eid']], gameid=anno['gameid'], anno=anno)
                         e.sequence_around_t(anno, self.dataset.tfr)  # EventException
+                        e.build_features()
                         if extract:
                             # ExtractorException
                             ret_val.append(self.extractor.extract(e))
@@ -87,9 +88,9 @@ class BaseLoader:
         self.extractor.augment = False
         for anno in annotations:
             try:
-                e = Event(self.dataset.games[anno['gameid']][
-                          'events'][anno['eid']], gameid=anno['gameid'])
+                e = Event(self.dataset.games[anno['gameid']]['events'][anno['eid']], gameid=anno['gameid'], anno=anno)
                 e.sequence_around_t(anno, self.dataset.tfr)  # EventException
+                e.build_features()
                 if extract:
                     # ExtractorException
                     ret_val.append(self.extractor.extract(e))
@@ -117,8 +118,17 @@ class BaseLoader:
             if anno == None:
                 break
             try:
-                e = Event(self.dataset.games[anno['gameid']]['events'][anno['eid']], anno=anno)
-                e.sequence_around_t(anno, self.dataset.tfr)  # EventException
+                start = time.time()
+                e = Event(
+                    self.dataset.games[anno['gameid']]['events'][int(anno['eid'])],
+                    anno=anno,
+                    gameid=anno['gameid'],
+                    data_config=self.dataset.config['data_config']
+                )
+                e.sequence_around_t(anno, self.dataset.tfr, data_config=self.dataset.config)  # EventException
+                e.build_features()
+                end = time.time()
+                print('\n Time executed: %s seconds' % (end - start))
                 if extract:
                     # ExtractorException
                     ret_val.append(self.extractor.extract(e))
@@ -133,6 +143,8 @@ class BaseLoader:
                 continue
             except ExtractorException as exc:
                 continue
+            except FeatureException as exc:
+                continue
             else:
                 N_pos += 1
                 ret_labels.append([0, 1])
@@ -141,8 +153,17 @@ class BaseLoader:
                 while True:
                     try:
                         anno = self.dataset.propose_negative_Ta()
-                        e = Event(self.dataset.games[anno['gameid']]['events'][anno['eid']], gameid=anno['gameid'], anno=anno)
-                        e.sequence_around_t(anno, self.dataset.tfr)
+                        start = time.time()
+                        e = Event(
+                            self.dataset.games[anno['gameid']]['events'][int(anno['eid'])],
+                            anno=anno,
+                            gameid=anno['gameid'],
+                            data_config=self.dataset.config
+                        )
+                        e.sequence_around_t(anno, self.dataset.tfr, data_config=self.dataset.config)  # EventException
+                        e.build_features()
+                        end = time.time()
+                        print('\n Time executed: %s seconds' % (end - start))
                         if extract:
                             # ExtractorException
                             ret_val.append(self.extractor.extract(e))
@@ -173,23 +194,32 @@ class BaseLoader:
         ret_val = []
         ret_gameclocks = []
         ret_frame_idx = []
-        event_id = anno['eid']
+        event_id = int(anno['eid'])
         game_id = anno['gameid']
         try:
-            e = Event(self.dataset.games[game_id]['events'][event_id], gameid=game_id, anno=anno)
+            e = Event(
+                self.dataset.games[game_id]['events'][event_id],
+                gameid=game_id,
+                anno=anno,
+                data_config=self.dataset.config
+            )
         except TeamNotFoundException:
             # malformed event
             return 0
         N_moments = len(e.moments)
         for i in xrange(0, N_moments, every_K_frame):
             try:
-                e = Event(self.dataset.games[game_id]['events'][event_id], gameid=game_id, anno=anno)
+                e = Event(
+                    self.dataset.games[game_id]['events'][event_id],
+                    gameid=game_id,
+                    anno=anno,
+                    data_config=self.dataset.config
+                )
                 game_clock = e.moments[i].game_clock
                 quarter = e.moments[i].quarter
                 anno = self.dataset._make_annotation(game_id, quarter, game_clock, event_id, self.dataset.tfr)
                 e.sequence_around_t(anno, self.dataset.tfr)  # EventException
-                # anno = {'gameclock': game_clock}
-                # e.sequence_around_t(anno, self.dataset.tfr, from_beginning=False)
+                e.build_features()
 
                 # just to make sure event not malformed (like
                 # missing player)

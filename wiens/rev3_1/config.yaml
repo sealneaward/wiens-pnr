@@ -2,7 +2,7 @@ batch_size: 128
 cookies: {SR_user: '', auth_checked: 'true', is_live: 'true', srcssfull: 'yes'}
 data_config:
   N_folds: 5
-  annotation: pnr-annotations/gt/rev0.pkl
+  annotation: pnr-annotations/roles/rev0.pkl
   annotation_with_roles: pnr-annotations/roles/rev0.pkl
   detect_validation: [0021500383]
   frame_rate: 25

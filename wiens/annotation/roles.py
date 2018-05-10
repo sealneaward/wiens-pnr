@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error
-
+import warnings
+warnings.filterwarnings('ignore')
 
 def get_possession_team(player, movement):
     """
@@ -216,31 +217,37 @@ def get_roles(annotation, movement, data_config):
         sportvu movement information
     data_config: dict
         configuration information
+
+    Returns
+    -------
+    annotation: dict
+        information on annotation, including unique roles for pnr
     """
     annotation_movement = movement.loc[
         (movement.game_clock <= (annotation['gameclock'] + 0.6)) &
         (movement.game_clock >= (annotation['gameclock'] + 0.6 - int(data_config['data_config']['tfr']/data_config['data_config']['frame_rate'])))
     , :]
+    try:
+        ball_handler_id = get_ball_handler(annotation_movement)
+        if ball_handler_id is None:
+            return None
+        ball_handler_team = get_possession_team(ball_handler_id, annotation_movement)
 
-    ball_handler_id = get_ball_handler(annotation_movement)
-    if ball_handler_id is None:
-        return None
-    ball_handler_team = get_possession_team(ball_handler_id, annotation_movement)
+        ball_defender_id = get_ball_defender(ball_handler_id, ball_handler_team, annotation_movement)
+        if ball_defender_id is None:
+            return None
+        ball_defender_team = get_possession_team(ball_defender_id, annotation_movement)
 
-    ball_defender_id = get_ball_defender(ball_handler_id, ball_handler_team, annotation_movement)
-    if ball_defender_id is None:
-        return None
-    ball_defender_team = get_possession_team(ball_defender_id, annotation_movement)
+        screen_setter_id = get_screen_setter(ball_handler_id, ball_handler_team, annotation_movement, annotation)
+        if screen_setter_id is None:
+            return None
+        screen_setter_team = get_possession_team(screen_setter_id, annotation_movement)
 
-    screen_setter_id = get_screen_setter(ball_handler_id, ball_handler_team, annotation_movement, annotation)
-    if screen_setter_id is None:
+        screen_defender_id = get_screen_defender(screen_setter_id, ball_defender_id, screen_setter_team, annotation_movement)
+        if screen_defender_id is None:
+            return None
+    except Exception as err:
         return None
-    screen_setter_team = get_possession_team(screen_setter_id, annotation_movement)
-
-    screen_defender_id = get_screen_defender(screen_setter_id, ball_defender_id, screen_setter_team, annotation_movement)
-    if screen_defender_id is None:
-        return None
-    screen_defender_team = get_possession_team(screen_defender_id, annotation_movement)
 
     annotation['ball_handler'] = ball_handler_id
     annotation['ball_defender'] = ball_defender_id

@@ -9,20 +9,21 @@ Arguments:
 Example:
     python make_sequences_from_sportvu.py wiens.yaml
 """
-from wiens.data.dataset import BaseDataset
-from wiens.data.extractor import BaseExtractor
-from wiens.data.loader import BaseLoader
-import config as CONFIG
-from wiens.data.constant import data_dir
 from tqdm import tqdm
 import os
 from docopt import docopt
 import yaml
 import numpy as np
-from wiens.data.utils import make_3teams_11players
 import signal
+import pandas as pd
+import cPickle as pkl
 from contextlib import contextmanager
 
+from wiens.data.dataset import BaseDataset
+from wiens.data.extractor import BaseExtractor
+from wiens.data.loader import BaseLoader
+from wiens.data.constant import data_dir
+import wiens.config as CONFIG
 
 class TimeoutException(Exception):
     pass
@@ -72,10 +73,10 @@ for fold_index in xrange(1): ## I have never actually used more than 1 fold...
     data_config = yaml.load(open(f_data_config, 'rb'))
 
     for game in tqdm(games):
-        if os.path.exists(os.path.join(curr_folder, '%s_neg_t.npy' % game)):
+        if os.path.exists(os.path.join(curr_folder, '%s_t.npy' % game)):
             continue
         try:
-            with time_limit(1500):
+            with time_limit(4500):
                 # create dataset fo single game
                 data_config['data_config']['game_ids'] = [game]
                 dataset = BaseDataset(data_config, fold_index=fold_index, game=game)
@@ -88,67 +89,14 @@ for fold_index in xrange(1): ## I have never actually used more than 1 fold...
                     val_x, val_t = loaded
                     if not len(val_x) > 0:
                         continue
-
-                val_x = np.array([make_3teams_11players(extractor.extract_raw(e)) for e in val_x])
-                np.save(os.path.join(curr_folder, '%s_val_x' % game), val_x)
+                pkl.dump(val_x, open(os.path.join(curr_folder, '%s_val_x.pkl' % game), 'wb'))
                 np.save(os.path.join(curr_folder, '%s_val_t' % game), val_t)
                 del val_x, val_t
 
-                x, t = loader.load_train(extract=False, positive_only=True)
-                x = np.array([make_3teams_11players(extractor.extract_raw(e)) for e in x])
-                np.save(os.path.join(curr_folder, '%s_pos_x' % game), x)
-                np.save(os.path.join(curr_folder, '%s_pos_t' % game), t)
+                x, t = loader.load_train(extract=False, positive_only=False)
+                pkl.dump(x, open(os.path.join(curr_folder, '%s_x.pkl' % game), 'wb'))
+                np.save(os.path.join(curr_folder, '%s_t' % game), t)
                 del x
-
-                xs = []
-                ind = 0
-                while True:
-                    print ('%i/%i' % (ind, len(dataset.train_hash)))
-                    print (len(xs))
-                    ind += 1
-                    loaded = loader.load_split_event('train', extract=False)
-                    if loaded is not None:
-                        if loaded == 0:
-                            continue
-                        batch_xs, labels, gameclocks, meta = loaded
-                        ## filter out positive examples
-                        new_batch_xs = []
-                        for x in batch_xs:
-                            e_gc = x.moments[len(x.moments) / 2].game_clock
-                            ispositive = False
-                            for label in labels:
-                                if np.abs(e_gc - label) < data_config['data_config']['t_negative']:
-                                    ispositive = True
-                                    break
-                            if not ispositive:
-                                xs.append(x)
-                        if ind % 50 == 0:
-                            print('Saving split')
-                            # npy file was written from previous split
-                            x = xs
-                            xs = []
-                            x = np.array([make_3teams_11players(extractor.extract_raw(e))
-                                          for e in x])
-                            if os.path.exists(os.path.join(curr_folder, '%s_neg_x.npy' % game)):
-                                x_arr = np.load(os.path.join(curr_folder, '%s_neg_x.npy' % game))
-                                x_arr = np.append(x_arr, x, axis=0)
-                                np.save(os.path.join(curr_folder, '%s_neg_x' % game), x_arr)
-                            else:
-                                np.save(os.path.join(curr_folder, '%s_neg_x' % game), x)
-                            del x
-                    else:
-                        print('Saving split')
-                        # last split
-                        x = xs
-                        x = np.array([make_3teams_11players(extractor.extract_raw(e))
-                                      for e in x])
-                        x_arr = np.load(os.path.join(curr_folder, '%s_neg_x.npy' % game))
-                        x_arr = np.append(x_arr, x, axis=0)
-                        np.save(os.path.join(curr_folder, '%s_neg_x' % game), x_arr)
-                        neg_t = np.array([[1, 0]]).repeat(x_arr.shape[0], axis=0)
-                        np.save(os.path.join(curr_folder, '%s_neg_t' % game), neg_t)
-                        del x_arr, xs, x
-                        break
 
         except TimeoutException as e:
             print("Game sequencing too slow for %s - skipping" % (game))  # some

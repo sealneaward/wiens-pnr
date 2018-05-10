@@ -73,6 +73,7 @@ class BaseDataset:
             # if only using one game, limit annotations for single game
             if game is not None:
                 self.annotations = pd.DataFrame.from_records(self.annotations)
+                self.annotations['gameid'] = '00' + self.annotations['gameid'].astype(int).astype(str).values
                 self.annotations = self.annotations.loc[self.annotations.gameid == game, :]
                 self.annotations = self.annotations.T.to_dict().values()
 

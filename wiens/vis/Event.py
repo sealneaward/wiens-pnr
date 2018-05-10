@@ -9,14 +9,19 @@ import pandas as pd
 import seaborn as sns
 
 from wiens.vis.utils import draw_full_court, draw_half_court
-from wiens.data.utils import get_game_info
 import wiens.config as CONFIG
+from wiens.annotation.roles import get_roles
+from wiens.annotation.features import *
 
 class EventException(Exception):
     pass
 
 class OneHotException(Exception):
     pass
+
+class FeatureException(Exception):
+    pass
+
 
 def format_pbp(pbp):
     event_str = "Play-By-Play Annotations\n"
@@ -36,12 +41,13 @@ def format_anno(anno):
 class Event:
     """A class for handling and showing events"""
 
-    def __init__(self, event, anno):
-        self.gameid = anno['gameid']
+    def __init__(self, event, gameid, data_config, anno):
+        self.gameid = gameid
         self.home_team_id = event['home']['teamid']
         self.away_team_id = event['visitor']['teamid']
         self.moments = []
         self.pbp = event['playbyplay']
+        self.data_config = data_config
         self.anno = anno
         self.start_time = 0
         self.end_time = 999
@@ -125,7 +131,7 @@ class Event:
         if last_idx != -1:
           self.moments = self.moments[:last_idx]
 
-    def sequence_around_t(self, anno, tfr, pnr=False):
+    def sequence_around_t(self, anno, tfr, data_config):
         """
         segment [T_a - tfr, T_a + tfr]
         note: when seek_last = True, seek for the last T_a
@@ -149,6 +155,13 @@ class Event:
         if end_ind - start_ind != 2*tfr:
           raise EventException('incorrect length')
         self.moments = self.moments[start_ind:end_ind]
+
+        # check if roles have been formed
+        self.movement = self.get_movement(limit=False)
+        if 'ball_handler' not in anno.keys():
+            self.anno = get_roles(annotation=anno, movement=self.movement, data_config=data_config)
+            if self.anno is None:
+                raise EventException
 
     def update_radius(self, i, player_circles, ball_circle, annotations, clock_info, lines, pred_lines):
         line = lines[0]
@@ -184,6 +197,42 @@ class Event:
         player_of_interest = moment.players[7]
 
         return ret
+
+    def get_movement(self, limit=False, limit_set=None):
+        """
+        Get dataframe of event movement
+        """
+        movement = pd.DataFrame(columns=['player_id', 'team_id', 'x_loc', 'y_loc', 'game_clock', 'color'])
+        for moment in self.moments:
+            for player in moment.players:
+                if (limit) and (player.id in limit_set):
+                    movement = movement.append({
+                        'player_id': player.id,
+                        'team_id': player.team.id,
+                        'x_loc': player.x,
+                        'y_loc': player.y,
+                        'game_clock': moment.game_clock,
+                        'color': player.color
+                    }, ignore_index=True)
+                elif not limit:
+                    movement = movement.append({
+                        'player_id': player.id,
+                        'team_id': player.team.id,
+                        'x_loc': player.x,
+                        'y_loc': player.y,
+                        'game_clock': moment.game_clock,
+                        'color': player.color
+                    }, ignore_index=True)
+            movement = movement.append({
+                'player_id': -1,
+                'team_id': -1,
+                'x_loc': moment.ball.x,
+                'y_loc': moment.ball.y,
+                'game_clock': moment.game_clock,
+                'color': moment.ball.color
+            }, ignore_index=True)
+
+        return movement
 
     def update_movement(self, i, player_circles, ball_circle, annotations, clock_info):
         ret = [player_circles, ball_circle]
@@ -245,44 +294,6 @@ class Event:
             )
             for player in self.players
         ]
-        x = np.arange(Constant.X_MIN, Constant.X_MAX, 1)
-
-        # Prepare table
-        sorted_players = sorted(start_moment.players, key=lambda player: player.team.id)
-        #
-        # home_player = sorted_players[0]
-        # guest_player = sorted_players[5]
-        # column_labels = tuple([home_player.team.name, guest_player.team.name])
-        # column_colours = tuple([home_player.team.color, guest_player.team.color])
-        # cell_colours = [column_colours for _ in range(5)]
-        #
-        # home_players = [' #'.join([player_dict[player['playerid']][0], str(player_dict[player['playerid']][1])]) for player in self.home_players]
-        # guest_players = [' #'.join([player_dict[player['playerid']][0], str(player_dict[player['playerid']][1])]) for player in self.guest_players]
-        # players_data = list(zip(home_players, guest_players))
-        #
-        # try:
-        #   table = plt.table(
-        #       cellText=players_data,
-        #       colLabels=column_labels,
-        #       colColours=column_colours,
-        #       colWidths=[Constant.COL_WIDTH, Constant.COL_WIDTH],
-        #       loc='bottom',
-        #       cellColours=cell_colours,
-        #       fontsize=Constant.FONTSIZE,
-        #       cellLoc='center'
-        #   )
-        # except ValueError as e:
-        #   raise EventException() ### unknown error, probably malformed sequence
-        # else:
-        #   pass
-        # finally:
-        # #   pass
-        #
-        # table.scale(1, Constant.SCALE)
-        # table_cells = table.properties()['child_artists']
-        # for cell in table_cells:
-        #     cell._text.set_color('white')
-
         player_circles = [
             plt.Circle((0, 0), Constant.PLAYER_CIRCLE_SIZE, color=player.color)
             for player in start_moment.players
@@ -342,27 +353,7 @@ class Event:
             ax.set_xlim([-250, 250])
             ax.set_ylim([422.5, -47.5])
 
-        movement = pd.DataFrame(columns=['player_id', 'team_id', 'x_loc', 'y_loc', 'game_clock', 'color'])
-        for moment in self.moments:
-            for player in moment.players:
-                if player.id in [anno['screen_defender']]:
-                    # , anno['ball_defender'], anno['screen_setter']]:
-                    movement = movement.append({
-                        'player_id': player.id,
-                        'team_id': player.team.id,
-                        'x_loc': player.x,
-                        'y_loc': player.y,
-                        'game_clock': moment.game_clock,
-                        'color': player.color
-                    }, ignore_index=True)
-            movement = movement.append({
-                'player_id': -1,
-                'team_id': -1,
-                'x_loc': moment.ball.x,
-                'y_loc': moment.ball.y,
-                'game_clock': moment.game_clock,
-                'color': moment.ball.color
-            }, ignore_index=True)
+        movement = self.get_movement(limit=True, limit_set=[anno['screen_defender']])
 
         if plot_type == 'half':
             movement.loc[movement.x_loc > 47, 'y_loc'] = movement.loc[movement.x_loc > 47, 'y_loc'].apply(lambda y: 50 - y)
@@ -406,6 +397,66 @@ class Event:
         fig.show()
         fig.savefig(save_path, format='pdf', bbox_inches='tight')
         plt.close()
+
+    def build_features(self):
+        """
+        Use defined pairwise distances from Wiens paper,
+         to create feature set from movement of roles in pnr.
+
+        Features:
+            - min distance from player a to player b over entire pnr window
+            - difference in distance from a to b from start to end of approach window
+            - average distance from a to b over approach window
+            - difference in distance from a to b from start to end of execution window
+            - average distance from a to b over execution window
+
+        These 5 features are calculated for relationships between:
+            - ball handler and ball defender
+            - ball handler and screen setter
+            - ball defender and screen setter
+            - ball handler and hoop
+            - ball defender and hoop
+            - screen setter and hoop
+
+        Once the 30 features are extracted, each feature is binned into 5 bins, making 150 binary features.
+        This is done in a later step, as these features are computed annotation by annotation.
+        """
+        self.movement = get_hoop_location(self.movement, self.anno)
+
+        self.min_dist_bh_bd = get_min_distance(self.movement, self.anno, 'ball_handler', 'ball_defender')
+        self.min_dist_bh_ss = get_min_distance(self.movement, self.anno, 'ball_handler', 'screen_setter')
+        self.min_dist_bd_ss = get_min_distance(self.movement, self.anno, 'ball_defender', 'screen_setter')
+        self.min_dist_bh_hp = get_min_distance(self.movement, self.anno, 'ball_handler', 'hoop')
+        self.min_dist_bd_hp = get_min_distance(self.movement, self.anno, 'ball_defender', 'hoop')
+        self.min_dist_ss_hp = get_min_distance(self.movement, self.anno, 'screen_setter', 'hoop')
+
+        self.diff_dist_bh_bd_ap = get_diff_distance(self.movement, 'approach', self.anno, 'ball_handler', 'ball_defender')
+        self.diff_dist_bh_ss_ap = get_diff_distance(self.movement, 'approach', self.anno, 'ball_handler', 'screen_setter')
+        self.diff_dist_bd_ss_ap = get_diff_distance(self.movement, 'approach', self.anno, 'ball_defender', 'screen_setter')
+        self.diff_dist_bh_hp_ap = get_diff_distance(self.movement, 'approach', self.anno, 'ball_handler', 'hoop')
+        self.diff_dist_bd_hp_ap = get_diff_distance(self.movement, 'approach', self.anno, 'ball_defender', 'hoop')
+        self.diff_dist_ss_hp_ap = get_diff_distance(self.movement, 'approach', self.anno, 'screen_setter', 'hoop')
+
+        self.diff_dist_bh_bd_ex = get_diff_distance(self.movement, 'execution', self.anno, 'ball_handler', 'ball_defender')
+        self.diff_dist_bh_ss_ex = get_diff_distance(self.movement, 'execution', self.anno, 'ball_handler', 'screen_setter')
+        self.diff_dist_bd_ss_ex = get_diff_distance(self.movement, 'execution', self.anno, 'ball_defender', 'screen_setter')
+        self.diff_dist_bh_hp_ex = get_diff_distance(self.movement, 'execution', self.anno, 'ball_handler', 'hoop')
+        self.diff_dist_bd_hp_ex = get_diff_distance(self.movement, 'execution', self.anno, 'ball_defender', 'hoop')
+        self.diff_dist_ss_hp_ex = get_diff_distance(self.movement, 'execution', self.anno, 'screen_setter', 'hoop')
+
+        self.ave_dist_bh_bd_ap = get_average_distance(self.movement, 'approach', self.anno, 'ball_handler', 'ball_defender')
+        self.ave_dist_bh_ss_ap = get_average_distance(self.movement, 'approach', self.anno, 'ball_handler', 'screen_setter')
+        self.ave_dist_bd_ss_ap = get_average_distance(self.movement, 'approach', self.anno, 'ball_defender', 'screen_setter')
+        self.ave_dist_bh_hp_ap = get_average_distance(self.movement, 'approach', self.anno, 'ball_handler', 'hoop')
+        self.ave_dist_bd_hp_ap = get_average_distance(self.movement, 'approach', self.anno, 'ball_defender', 'hoop')
+        self.ave_dist_ss_hp_ap = get_average_distance(self.movement, 'approach', self.anno, 'screen_setter', 'hoop')
+
+        self.ave_dist_bh_bd_ex = get_average_distance(self.movement, 'execution', self.anno, 'ball_handler', 'ball_defender')
+        self.ave_dist_bh_ss_ex = get_average_distance(self.movement, 'execution', self.anno, 'ball_handler', 'screen_setter')
+        self.ave_dist_bd_ss_ex = get_average_distance(self.movement, 'execution', self.anno, 'ball_defender', 'screen_setter')
+        self.ave_dist_bh_hp_ex = get_average_distance(self.movement, 'execution', self.anno, 'ball_handler', 'hoop')
+        self.ave_dist_bd_hp_ex = get_average_distance(self.movement, 'execution', self.anno, 'ball_defender', 'hoop')
+        self.ave_dist_ss_hp_ex = get_average_distance(self.movement, 'execution', self.anno, 'screen_setter', 'hoop')
 
 
 def convert_time(time):

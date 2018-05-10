@@ -12,3 +12,4 @@ wiens.egg-info/**
 **/logs/**
 **/saves*/**
 *.py~
+*.tar.gz
