@@ -458,6 +458,32 @@ class Event:
         self.ave_dist_bd_hp_ex = get_average_distance(self.movement, 'execution', self.anno, 'ball_defender', 'hoop')
         self.ave_dist_ss_hp_ex = get_average_distance(self.movement, 'execution', self.anno, 'screen_setter', 'hoop')
 
+        # TODO change this
+        event = None
+        event.min_dist_bh_sd = get_min_distance(event.movement, event.anno, 'ball_handler', 'screen_defender')
+        event.min_dist_bd_sd = get_min_distance(event.movement, event.anno, 'ball_defender', 'screen_defender')
+        event.min_dist_ss_sd = get_min_distance(event.movement, event.anno, 'screen_setter', 'screen_defender')
+        event.min_dist_sd_hp = get_min_distance(event.movement, event.anno, 'screen_defender', 'hoop')
+
+        event.diff_dist_bh_sd_ap = get_diff_distance(event.movement, 'approach', event.anno, 'ball_handler', 'screen_defender')
+        event.diff_dist_bd_sd_ap = get_diff_distance(event.movement, 'approach', event.anno, 'ball_defender', 'screen_defender')
+        event.diff_dist_ss_sd_ap = get_diff_distance(event.movement, 'approach', event.anno, 'screen_setter', 'screen_defender')
+        event.diff_dist_sd_hp_ap = get_diff_distance(event.movement, 'approach', event.anno, 'ball_handler', 'ball_defender')
+
+        event.diff_dist_bh_sd_ex = get_diff_distance(event.movement, 'execution', event.anno, 'ball_handler', 'screen_defender')
+        event.diff_dist_bd_sd_ex = get_diff_distance(event.movement, 'execution', event.anno, 'ball_defender', 'screen_defender')
+        event.diff_dist_ss_sd_ex = get_diff_distance(event.movement, 'execution', event.anno, 'screen_setter', 'screen_defender')
+        event.diff_dist_sd_hp_ex = get_diff_distance(event.movement, 'execution', event.anno, 'screen_defender', 'hoop')
+
+        event.ave_dist_bh_sd_ap = get_diff_distance(event.movement, 'approach', event.anno, 'ball_handler', 'screen_defender')
+        event.ave_dist_bd_sd_ap = get_diff_distance(event.movement, 'approach', event.anno, 'screen_setter', 'screen_defender')
+        event.ave_dist_ss_sd_ap = get_diff_distance(event.movement, 'approach', event.anno, 'screen_setter', 'screen_defender')
+        event.ave_dist_sd_hp_ap = get_diff_distance(event.movement, 'approach', event.anno, 'ball_handler', 'ball_defender')
+
+        event.ave_dist_bh_sd_ex = get_diff_distance(event.movement, 'execution', event.anno, 'ball_handler', 'screen_defender')
+        event.ave_dist_bd_sd_ex = get_diff_distance(event.movement, 'execution', event.anno, 'ball_defender', 'screen_defender')
+        event.ave_dist_ss_sd_ex = get_diff_distance(event.movement, 'execution', event.anno, 'screen_setter', 'screen_defender')
+        event.ave_dist_sd_hp_ex = get_diff_distance(event.movement, 'execution', event.anno, 'screen_defender', 'hoop')
 
 def convert_time(time):
     return '%s:%s' % (int(time/60), int(time % 60))

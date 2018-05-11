@@ -8,7 +8,7 @@ import cPickle as pkl
 import time
 from tqdm import tqdm
 
-from wiens.vis.Event import Event, EventException, FeatureException
+from wiens.vis.Event import Event, EventException, FeatureException, get_diff_distance, get_min_distance, get_average_distance, get_hoop_location
 from wiens.vis.Team import TeamNotFoundException
 from wiens.data.extractor import ExtractorException, OneHotException
 from wiens.data.utils import shuffle_2_array, make_3teams_11players
@@ -184,50 +184,28 @@ class GameSequenceLoader:
         t = self.val_t
         # z = self.val_z
 
-        if decode:
-            labels = np.zeros((t.shape[0]))
-            labels[t[:, 1] == 1] = 1
-            t = labels
-
-        if multi:
-            z = []
-            x = x[t == 1]
-            for event in x:
-                z.append(int(event.anno['label']))
-
-            x = self.get_features(x)
-            x = self.get_binarized_features(x)
-
-            z = np.array(z)
-            x = np.array(x)
-
-            x, z = shuffle_2_array(x, z)
-            return x, z
-        else:
-            x = self.get_features(x)
-            x = self.get_binarized_features(x)
-
-            t = np.array(t)
-            x = np.array(x)
-
-            x, t = shuffle_2_array(x, t)
-            return x, t
+        return self.get_xy(x, t, decode=decode, multi=multi)
 
     def load_train(self, decode=False, multi=False):
         x = self.x
         t = self.t
         # z = self.z
+        
+        return self.get_xy(x, t, decode=decode, multi=multi)
+
+    def get_xy(self, x, t,  decode=False, multi=False):
         if decode:
             labels = np.zeros((t.shape[0]))
             labels[t[:, 1] == 1] = 1
             t = labels
+
         if multi:
             z = []
             x = x[t == 1]
             for event in x:
                 z.append(int(event.anno['label']))
 
-            x = self.get_features(x)
+            x = self.get_features(x, multi=True)
             x = self.get_binarized_features(x)
 
             z = np.array(z)
@@ -248,7 +226,7 @@ class GameSequenceLoader:
     def reset(self):
         self.batch_index = 0
         
-    def get_features(self, events):
+    def get_features(self, events, multi=False):
         features = []
         for event in events:
             event_features = []
@@ -286,6 +264,32 @@ class GameSequenceLoader:
             event_features.append(event.ave_dist_bh_hp_ex)
             event_features.append(event.ave_dist_bd_hp_ex)
             event_features.append(event.ave_dist_ss_hp_ex)
+
+            if multi:
+                event_features.append(get_min_distance(event.movement, event.anno, 'ball_handler', 'screen_defender'))
+                event_features.append(get_min_distance(event.movement, event.anno, 'ball_defender', 'screen_defender'))
+                event_features.append(get_min_distance(event.movement, event.anno, 'screen_setter', 'screen_defender'))
+                event_features.append(get_min_distance(event.movement, event.anno, 'screen_defender', 'hoop'))
+
+                event_features.append(get_diff_distance(event.movement, 'approach', event.anno, 'ball_handler', 'screen_defender'))
+                event_features.append(get_diff_distance(event.movement, 'approach', event.anno, 'ball_defender', 'screen_defender'))
+                event_features.append(get_diff_distance(event.movement, 'approach', event.anno, 'screen_setter', 'screen_defender'))
+                event_features.append(get_diff_distance(event.movement, 'approach', event.anno, 'ball_handler', 'ball_defender'))
+
+                event_features.append(get_diff_distance(event.movement, 'execution', event.anno, 'ball_handler', 'screen_defender'))
+                event_features.append(get_diff_distance(event.movement, 'execution', event.anno, 'ball_defender', 'screen_defender'))
+                event_features.append(get_diff_distance(event.movement, 'execution', event.anno, 'screen_setter', 'screen_defender'))
+                event_features.append(get_diff_distance(event.movement, 'execution', event.anno, 'screen_defender', 'hoop'))
+
+                event_features.append(get_diff_distance(event.movement, 'approach', event.anno, 'ball_handler', 'screen_defender'))
+                event_features.append(get_diff_distance(event.movement, 'approach', event.anno, 'screen_setter', 'screen_defender'))
+                event_features.append(get_diff_distance(event.movement, 'approach', event.anno, 'screen_setter', 'screen_defender'))
+                event_features.append(get_diff_distance(event.movement, 'approach', event.anno, 'ball_handler', 'ball_defender'))
+
+                event_features.append(get_diff_distance(event.movement, 'execution', event.anno, 'ball_handler', 'screen_defender'))
+                event_features.append(get_diff_distance(event.movement, 'execution', event.anno, 'ball_defender', 'screen_defender'))
+                event_features.append(get_diff_distance(event.movement, 'execution', event.anno, 'screen_setter', 'screen_defender'))
+                event_features.append(get_diff_distance(event.movement, 'execution', event.anno, 'screen_defender', 'hoop'))
 
             features.append(event_features)
 
