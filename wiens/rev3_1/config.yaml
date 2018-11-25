@@ -4,16 +4,15 @@ data_config:
   N_folds: 5
   annotation: pnr-annotations/roles/rev0.pkl
   annotation_with_roles: pnr-annotations/roles/rev0.pkl
-  detect_validation: [0021500383]
+  detect_testing: [0021500096]
+  detect_validation: [0021500096]
   frame_rate: 25
-  game_ids: [0021500408, 0021500009, '0021500066', '0021500357', '0021500024', '0021500150',
-    0021500196, 0021500278, 0021500383, 0021500096, '0021500075', '0021500477', '0021500057',
-    0021500188]
+  game_ids: [0021500383]
   season_ids: ['2016']
   shuffle: true
   t_jitter: 0
   t_negative: 2
-  tfr: 50
+  tfr: 38
 extractor_config:
   crop: bmf
   crop_size: [25, 25]

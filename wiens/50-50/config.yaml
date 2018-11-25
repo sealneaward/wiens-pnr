@@ -1,0 +1,38 @@
+batch_size: 128
+cookies: {SR_user: '', auth_checked: 'true', is_live: 'true', srcssfull: 'yes'}
+data_config:
+  N_folds: 5
+  annotation: pnr-annotations/roles/rev0.pkl
+  annotation_with_roles: pnr-annotations/roles/rev0.pkl
+  detect_testing: [0021500096]
+  detect_validation: [0021500383]
+  frame_rate: 25
+  game_ids: [0021500408, 0021500009, '0021500066', '0021500357', '0021500024', '0021500150',
+    0021500196, 0021500278, 0021500383, 0021500096, '0021500075', '0021500477', '0021500057',
+    0021500188]
+  season_ids: ['2016']
+  shuffle: true
+  t_jitter: 0
+  t_negative: 2
+  tfr: 38
+extractor_config:
+  crop: bmf
+  crop_size: [25, 25]
+  d0flip: true
+  d1flip: true
+  jitter: [1, 1]
+  tfa_jitter_radius: 20
+  tfr: 30
+  version: 2
+  video: false
+headers: {Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+  Accept-Encoding: 'gzip, deflate, sdch, br', Accept-Language: 'en-US,en;q=0.8', Cache-Control: max-age=0,
+  Connection: keep-alive, Upgrade-Insecure-Requests: '1', User-Agent: 'Mozilla/5.0
+    (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87
+    Safari/537.36'}
+n_classes: 2
+n_negative_examples: 3000
+no_extract: true
+node1: 1
+preproc_dir: 50-50
+randseed: 1

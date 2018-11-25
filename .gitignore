@@ -13,3 +13,4 @@ wiens.egg-info/**
 **/saves*/**
 *.py~
 *.tar.gz
+**/rev3_1/**

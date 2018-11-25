@@ -23,3 +23,15 @@ saves.dir = "%s/%s" % (REAL_PATH, "saves")
 
 logs = ConfigSection("logs")
 logs.dir = "%s/%s" % (REAL_PATH, "logs")
+
+model = ConfigSection("model")
+model.dir = "%s/%s" % (REAL_PATH, "model")
+
+model.config = ConfigSection("config")
+model.config.dir = "%s/%s" % (model.dir, "config")
+
+detect = ConfigSection("detect")
+detect.dir = "%s/%s" % (REAL_PATH, "detect")
+
+detect.config = ConfigSection("config")
+detect.config.dir = "%s/%s" % (detect.dir, "config")

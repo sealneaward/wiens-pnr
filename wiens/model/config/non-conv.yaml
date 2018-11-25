@@ -1,0 +1,4 @@
+class_name: NonLinear
+### Model Configuration
+model_config:
+    models: ['svm', 'nb', 'rf', 'nn', 'lr', 'gb']

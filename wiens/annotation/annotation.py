@@ -87,9 +87,12 @@ def read_annotation_from_raw(fpath, game_id):
     return annotations
 
 
-def prepare_gt_file_from_raw_label_dir(pnr_dir, game_dir):
+def prepare_gt_file_from_raw_label_dir(pnr_dir, game_dir, game_id=None):
     gt = []
-    all_raw_f = filter(lambda s:'raw-' in s,os.listdir(pnr_dir))
+    if game_id is None:
+        all_raw_f = filter(lambda s:'raw-' in s,os.listdir(pnr_dir))
+    else:
+        all_raw_f = filter(lambda s: 'raw-%s' % game_id in s, os.listdir(pnr_dir))
     for pnr_anno_ind in xrange(len(all_raw_f)):
         game_anno_base = all_raw_f[pnr_anno_ind]
         if not os.path.isfile(os.path.join(pnr_dir,game_anno_base)):

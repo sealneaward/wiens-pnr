@@ -4,30 +4,41 @@ from sklearn.metrics import mean_squared_error
 import warnings
 warnings.filterwarnings('ignore')
 
+class WiensRoleException(Exception):
+    pass
+
 def get_possession_team(player, movement):
     """
-    Return the team_id of the ball_handler
+    Return the team_id of the player
     """
     team_id = movement.loc[movement.player_id == player, 'team_id'].values[0]
     return team_id
 
 
-def get_ball_handler(movement):
+def get_ball_handler(movement, annotation):
     """
     Use ball location to MSE of player location
 
     Parameters
     ----------
-    ball_location: np.array
+    movement: pandas.DataFrame
         x/y location data
-    player_location: np.array
-        x/y location data
+    annotation: dict
+        annotation information data
+    data_config: dict
+        yaml information
 
     Returns
     -------
-    distance: np.array
-        difference in locations to use to find ball handler
+    player_id: int
     """
+    movement = movement.loc[movement.game_clock == annotation['exact_time'], :].drop_duplicates(subset=['player_id'],
+                                                                                                inplace=False)
+    # movement = movement.loc[
+    # (movement.game_clock <= (annotation['gameclock'] + 0.6)) &
+    # (movement.game_clock >= (annotation['gameclock'] + 0.6 - 1))
+    # , :]
+
     movement['distance_to_ball'] = 0
     ball_movement = movement.loc[movement.player_id == -1, :]
     players_movement = movement.loc[movement.player_id != -1, :]
@@ -77,11 +88,9 @@ def get_screen_setter(ball_handler, ball_handler_team, movement, annotation):
         player id
     """
     # get closest time to screen annotation time
-    game_clocks = movement['game_clock'].drop_duplicates(inplace=False).values
-    game_clock = game_clocks[np.argmin(np.abs(game_clocks - (annotation['gameclock'] + 0.6)))]
     screen_setter = None
 
-    movement = movement.loc[movement.game_clock == game_clock, :]
+    movement = movement.loc[movement.game_clock == annotation['exact_time'], :].drop_duplicates(subset=['player_id'], inplace=False)
     ball_handler_movement = movement.loc[movement.player_id == ball_handler, :]
     players_movement = movement.loc[
        (movement.player_id != ball_handler) &
@@ -89,7 +98,7 @@ def get_screen_setter(ball_handler, ball_handler_team, movement, annotation):
        (movement.team_id == ball_handler_team)
     , :]
 
-    smallest_distance = 999999
+    smallest_distance = 99999
     for player_id, player_movement in players_movement.groupby('player_id'):
 
         player_movement['ball_handler_location_x'] = ball_handler_movement['x_loc'].values
@@ -108,10 +117,13 @@ def get_screen_setter(ball_handler, ball_handler_team, movement, annotation):
             smallest_distance = mse
             screen_setter = player_id
 
+    # if smallest_distance == 10:
+    #     raise WiensRoleException('Error in getting screen setter')
+
     return screen_setter
 
 
-def get_ball_defender(ball_handler, ball_handler_team, movement):
+def get_ball_defender(ball_handler, ball_handler_team, movement, annotation):
     """
     Use ball location to MSE of player location
 
@@ -127,6 +139,7 @@ def get_ball_defender(ball_handler, ball_handler_team, movement):
     distance: np.array
         difference in locations to use to find ball handler
     """
+    movement = movement.loc[movement.game_clock == annotation['exact_time'], :].drop_duplicates(subset=['player_id'], inplace=False)
     movement['distance_to_ball'] = 0
     ball_handler_movement = movement.loc[movement.player_id == ball_handler, :]
     players_movement = movement.loc[
@@ -136,7 +149,7 @@ def get_ball_defender(ball_handler, ball_handler_team, movement):
     , :]
     ball_defender = None
 
-    smallest_distance = 999999
+    smallest_distance = 99999
     for player_id, player_movement in players_movement.groupby('player_id'):
 
         player_movement['ball_handler_location_x'] = ball_handler_movement['x_loc'].values
@@ -155,10 +168,13 @@ def get_ball_defender(ball_handler, ball_handler_team, movement):
             smallest_distance = mse
             ball_defender = player_id
 
+    # if smallest_distance == 12:
+    #     raise WiensRoleException('Error in getting ball defender')
+
     return ball_defender
 
 
-def get_screen_defender(screen_setter, ball_defender, screen_setter_team, movement):
+def get_screen_defender(screen_setter, ball_defender, screen_setter_team, movement, annotation):
     """
     Use ball location to MSE of player location
 
@@ -174,6 +190,7 @@ def get_screen_defender(screen_setter, ball_defender, screen_setter_team, moveme
     distance: np.array
         difference in locations to use to find ball handler
     """
+    movement = movement.loc[movement.game_clock == annotation['exact_time'], :].drop_duplicates(subset=['player_id'], inplace=False)
     movement['distance_to_ball'] = 0
     screen_setter_movement = movement.loc[movement.player_id == screen_setter, :]
     players_movement = movement.loc[
@@ -186,15 +203,15 @@ def get_screen_defender(screen_setter, ball_defender, screen_setter_team, moveme
     smallest_distance = 999999
     for player_id, player_movement in players_movement.groupby('player_id'):
 
-        player_movement['ball_handler_location_x'] = screen_setter_movement['x_loc'].values
-        player_movement['ball_handler_location_y'] = screen_setter_movement['y_loc'].values
+        player_movement['screen_setter_location_x'] = screen_setter_movement['x_loc'].values
+        player_movement['screen_setter_location_y'] = screen_setter_movement['y_loc'].values
 
         mse = mean_squared_error(
             (
                 player_movement[['x_loc', 'y_loc']].values
             ),
             (
-                player_movement[['ball_handler_location_x', 'ball_handler_location_y']].values
+                player_movement[['screen_setter_location_x', 'screen_setter_location_y']].values
             )
         )
 
@@ -228,12 +245,16 @@ def get_roles(annotation, movement, data_config):
         (movement.game_clock >= (annotation['gameclock'] + 0.6 - int(data_config['data_config']['tfr']/data_config['data_config']['frame_rate'])))
     , :]
     try:
-        ball_handler_id = get_ball_handler(annotation_movement)
+        game_clocks = annotation_movement['game_clock'].drop_duplicates(inplace=False).values
+        game_clock = game_clocks[np.argmin(np.abs(game_clocks - (annotation['gameclock'] + 0.6)))]
+        annotation['exact_time'] = game_clock
+
+        ball_handler_id = get_ball_handler(movement=annotation_movement, annotation=annotation)
         if ball_handler_id is None:
             return None
         ball_handler_team = get_possession_team(ball_handler_id, annotation_movement)
 
-        ball_defender_id = get_ball_defender(ball_handler_id, ball_handler_team, annotation_movement)
+        ball_defender_id = get_ball_defender(ball_handler_id, ball_handler_team, annotation_movement, annotation)
         if ball_defender_id is None:
             return None
         ball_defender_team = get_possession_team(ball_defender_id, annotation_movement)
@@ -243,7 +264,7 @@ def get_roles(annotation, movement, data_config):
             return None
         screen_setter_team = get_possession_team(screen_setter_id, annotation_movement)
 
-        screen_defender_id = get_screen_defender(screen_setter_id, ball_defender_id, screen_setter_team, annotation_movement)
+        screen_defender_id = get_screen_defender(screen_setter_id, ball_defender_id, screen_setter_team, annotation_movement, annotation)
         if screen_defender_id is None:
             return None
     except Exception as err:
